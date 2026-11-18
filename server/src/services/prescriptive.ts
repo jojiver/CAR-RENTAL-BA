@@ -64,12 +64,12 @@ const PRIORITY_WEIGHT: Record<MaintenanceRec['priority'], number> = {
   low: 1,
 };
 
-export function getPrescriptive() {
-  const dataset = loadDataset();
+export async function getPrescriptive() {
+  const dataset = await loadDataset();
   const today = todayISO();
   const from30 = addDaysISO(today, -29);
   const cat30 = categoryStats(dataset, from30, today);
-  const predictive = getPredictive(14);
+  const predictive = await getPredictive(14);
   const forecastByCategory = new Map(predictive.categories.map((row) => [row.category, row]));
 
   const fleetAvgRate = new Map<Category, number>();

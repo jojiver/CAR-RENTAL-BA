@@ -3,8 +3,8 @@ import { mean, round, sum } from '../lib/stats';
 import { categoryStats, rentalsStartingIn } from './derive';
 import { daysInWindow, loadDataset, rentedDaysWithin, utilizationRate } from './store';
 
-export function getDescriptive(days = 365) {
-  const dataset = loadDataset();
+export async function getDescriptive(days = 365) {
+  const dataset = await loadDataset();
   const today = todayISO();
   const from = addDaysISO(today, -(days - 1));
   const windowRentals = rentalsStartingIn(dataset, from, today);

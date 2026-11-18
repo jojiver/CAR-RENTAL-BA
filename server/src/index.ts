@@ -12,8 +12,12 @@ import { vehiclesRouter } from './routes/vehicles';
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
 const clientDist = path.resolve(__dirname, '../../client/dist');
+const allowedOrigins = (process.env.CORS_ORIGIN ?? '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
-app.use(cors());
+app.use(cors(allowedOrigins.length > 0 ? { origin: allowedOrigins } : {}));
 app.use(express.json());
 
 app.get('/api/health', (_req, res) => {
@@ -42,10 +46,18 @@ app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-runMigrations();
-ensureSeeded(db);
+async function start(): Promise<void> {
+  await runMigrations();
+  await ensureSeeded(db);
+  app.listen(port, () => {
+    console.log(`[api] Rove API listening on http://localhost:${port}`);
+    console.log(
+      '[api] GET /api/overview · /api/analytics/descriptive · /api/analytics/predictive · /api/analytics/prescriptive',
+    );
+  });
+}
 
-app.listen(port, () => {
-  console.log(`[api] Rove API listening on http://localhost:${port}`);
-  console.log('[api] GET /api/overview · /api/analytics/descriptive · /api/analytics/predictive · /api/analytics/prescriptive');
+start().catch((error: unknown) => {
+  console.error('[api] Failed to start:', error);
+  process.exit(1);
 });

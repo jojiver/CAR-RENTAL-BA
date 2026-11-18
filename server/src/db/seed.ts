@@ -1,11 +1,11 @@
 ﻿import { eq, sql } from 'drizzle-orm';
-import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from './schema';
 import { customers, rentals, vehicles, type Category } from './schema';
 import { addDaysISO, todayISO } from '../lib/dates';
-import { db, runMigrations } from './client';
+import { closeDb, db, runMigrations } from './client';
 
-type DB = BetterSQLite3Database<typeof schema>;
+type DB = NodePgDatabase<typeof schema>;
 
 const DAYS_OF_HISTORY = 540;
 const CUSTOMER_COUNT = 200;
@@ -152,13 +152,14 @@ function chunk<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
-export function seedDatabase(database: DB): { vehicles: number; customers: number; rentals: number } {
+export async function seedDatabase(
+  database: DB,
+): Promise<{ vehicles: number; customers: number; rentals: number }> {
   const today = todayISO();
 
-  database.delete(rentals).run();
-  database.delete(vehicles).run();
-  database.delete(customers).run();
-  database.run(sql`DELETE FROM sqlite_sequence WHERE name IN ('rentals', 'vehicles', 'customers')`);
+  await database.execute(
+    sql`TRUNCATE TABLE rentals, vehicles, customers RESTART IDENTITY CASCADE`,
+  );
 
   const vehicleRows = CATALOG.map((entry, index) => {
     const jittered = entry.base * rnd(0.92, 1.12);
@@ -181,8 +182,7 @@ export function seedDatabase(database: DB): { vehicles: number; customers: numbe
     };
   });
 
-  database.insert(vehicles).values(vehicleRows).run();
-  const vehicleList = database.select().from(vehicles).all();
+  const vehicleList = await database.insert(vehicles).values(vehicleRows).returning();
 
   const customerRows = Array.from({ length: CUSTOMER_COUNT }, (_, index) => {
     const first = FIRST_NAMES[index % FIRST_NAMES.length];
@@ -200,8 +200,7 @@ export function seedDatabase(database: DB): { vehicles: number; customers: numbe
     };
   });
 
-  database.insert(customers).values(customerRows).run();
-  const customerList = database.select().from(customers).all();
+  const customerList = await database.insert(customers).values(customerRows).returning();
   const loyaltyPool = customerList.slice(0, 30);
 
   const bookings = new Map<number, { start: string; end: string }[]>();
@@ -281,7 +280,7 @@ export function seedDatabase(database: DB): { vehicles: number; customers: numbe
   }
 
   for (const part of chunk(rentalRows, 400)) {
-    database.insert(rentals).values(part).run();
+    await database.insert(rentals).values(part);
   }
 
   const maintenanceCandidates = shuffle(
@@ -297,7 +296,7 @@ export function seedDatabase(database: DB): { vehicles: number; customers: numbe
       : activeVehicleIds.has(vehicle.id)
         ? 'rented'
         : 'available';
-    database.update(vehicles).set({ status }).where(eq(vehicles.id, vehicle.id)).run();
+    await database.update(vehicles).set({ status }).where(eq(vehicles.id, vehicle.id));
   }
 
   return {
@@ -307,21 +306,32 @@ export function seedDatabase(database: DB): { vehicles: number; customers: numbe
   };
 }
 
-export function ensureSeeded(database: DB): boolean {
-  const [row] = database.select({ count: sql<number>`count(*)` }).from(vehicles).all();
+export async function ensureSeeded(database: DB): Promise<boolean> {
+  const [row] = await database
+    .select({ count: sql<number>`count(*)::int` })
+    .from(vehicles);
   if ((row?.count ?? 0) > 0) return false;
-  const result = seedDatabase(database);
+  const result = await seedDatabase(database);
   console.log(
     `[seed] Seeded ${result.vehicles} vehicles, ${result.customers} customers, ${result.rentals} rentals.`,
   );
   return true;
 }
 
-if (require.main === module) {
-  runMigrations();
-  const result = seedDatabase(db);
+async function main(): Promise<void> {
+  await runMigrations();
+  const result = await seedDatabase(db);
   console.log(
     `[seed] Done: ${result.vehicles} vehicles, ${result.customers} customers, ${result.rentals} rentals (${SERVICE_INTERVAL.toLocaleString()} mi service interval).`,
   );
+  await closeDb();
+}
+
+if (require.main === module) {
+  main().catch(async (error) => {
+    console.error(error);
+    await closeDb().catch(() => undefined);
+    process.exit(1);
+  });
 }
 

@@ -1,4 +1,4 @@
-import { index, integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { doublePrecision, date, index, integer, pgTable, serial, text } from 'drizzle-orm/pg-core';
 
 export const CATEGORIES = ['Economy', 'Compact', 'SUV', 'Luxury', 'Van'] as const;
 export type Category = (typeof CATEGORIES)[number];
@@ -9,22 +9,22 @@ export type VehicleStatus = (typeof VEHICLE_STATUSES)[number];
 export const RENTAL_STATUSES = ['active', 'completed', 'cancelled'] as const;
 export type RentalStatus = (typeof RENTAL_STATUSES)[number];
 
-export const vehicles = sqliteTable(
+export const vehicles = pgTable(
   'vehicles',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: serial('id').primaryKey(),
     name: text('name').notNull(),
     brand: text('brand').notNull(),
     model: text('model').notNull(),
     year: integer('year').notNull(),
     category: text('category').$type<Category>().notNull(),
     plate: text('plate').notNull().unique(),
-    dailyRate: real('daily_rate').notNull(),
+    dailyRate: doublePrecision('daily_rate').notNull(),
     mileage: integer('mileage').notNull().default(0),
     lastServiceMileage: integer('last_service_mileage').notNull().default(0),
     status: text('status').$type<VehicleStatus>().notNull().default('available'),
-    acquiredAt: text('acquired_at').notNull(),
-    createdAt: text('created_at').notNull(),
+    acquiredAt: date('acquired_at').notNull(),
+    createdAt: date('created_at').notNull(),
   },
   (table) => [
     index('vehicles_category_idx').on(table.category),
@@ -32,40 +32,40 @@ export const vehicles = sqliteTable(
   ],
 );
 
-export const customers = sqliteTable(
+export const customers = pgTable(
   'customers',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: serial('id').primaryKey(),
     fullName: text('full_name').notNull(),
     email: text('email').notNull().unique(),
     phone: text('phone').notNull(),
     license: text('license').notNull(),
-    joinedAt: text('joined_at').notNull(),
-    createdAt: text('created_at').notNull(),
+    joinedAt: date('joined_at').notNull(),
+    createdAt: date('created_at').notNull(),
   },
   (table) => [index('customers_joined_idx').on(table.joinedAt)],
 );
 
-export const rentals = sqliteTable(
+export const rentals = pgTable(
   'rentals',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: serial('id').primaryKey(),
     vehicleId: integer('vehicle_id')
       .notNull()
       .references(() => vehicles.id),
     customerId: integer('customer_id')
       .notNull()
       .references(() => customers.id),
-    startDate: text('start_date').notNull(),
-    endDate: text('end_date').notNull(),
+    startDate: date('start_date').notNull(),
+    endDate: date('end_date').notNull(),
     days: integer('days').notNull(),
-    dailyRate: real('daily_rate').notNull(),
-    totalAmount: real('total_amount').notNull(),
+    dailyRate: doublePrecision('daily_rate').notNull(),
+    totalAmount: doublePrecision('total_amount').notNull(),
     status: text('status').$type<RentalStatus>().notNull().default('active'),
-    returnedAt: text('returned_at'),
+    returnedAt: date('returned_at'),
     pickupLocation: text('pickup_location').notNull(),
     dropoffLocation: text('dropoff_location').notNull(),
-    createdAt: text('created_at').notNull(),
+    createdAt: date('created_at').notNull(),
   },
   (table) => [
     index('rentals_vehicle_idx').on(table.vehicleId),

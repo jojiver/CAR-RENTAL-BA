@@ -9,18 +9,31 @@ import type {
   Vehicle,
 } from './types';
 
+const configuredBase = (import.meta.env.VITE_API_URL ?? '').trim();
+const API_BASE = configuredBase.replace(/\/+$/, '').replace(/\/api$/i, '');
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`/api${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  });
-  const payload = await response.json().catch(() => null);
+  const headers = new Headers(init?.headers);
+  if (init?.body && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  const response = await fetch(`${API_BASE}/api${path}`, { ...init, headers });
+  const contentType = response.headers.get('content-type') ?? '';
+  const payload = contentType.includes('application/json')
+    ? await response.json().catch(() => null)
+    : null;
+
   if (!response.ok) {
     const message =
       payload && typeof payload.error === 'string'
         ? payload.error
         : `Request failed (${response.status})`;
     throw new Error(message);
+  }
+  if (payload === null) {
+    throw new Error(
+      `Expected JSON from ${API_BASE || window.location.origin}/api${path}. Check VITE_API_URL.`,
+    );
   }
   return payload as T;
 }

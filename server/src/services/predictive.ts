@@ -86,9 +86,9 @@ const MODEL_NAME = 'Linear trend + weekday seasonality';
 const MODEL_DESCRIPTION =
   'A damped least-squares trend over the last 120 days is combined with day-of-week factors from the last 8 weeks and a 14-day level, so the forecast tracks recent demand. The band is a roughly 80% interval from in-sample residuals (±1.28σ). Accuracy is measured as 100 − WAPE on the last 4 weeks of weekly totals.';
 
-export function getPredictive(horizon = 14) {
+export async function getPredictive(horizon = 14) {
   const h = clamp(Math.round(horizon) || 14, 7, 60);
-  const dataset = loadDataset();
+  const dataset = await loadDataset();
   const today = todayISO();
   const from = addDaysISO(today, -(HISTORY_DAYS - 1));
 

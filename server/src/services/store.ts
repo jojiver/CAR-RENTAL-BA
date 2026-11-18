@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db } from '../db/client';
 import { customers, rentals, vehicles } from '../db/schema';
 import type { Category, Customer, Rental, RentalStatus, Vehicle, VehicleStatus } from '../db/schema';
@@ -13,10 +13,12 @@ export interface Dataset {
   customerById: Map<number, Customer>;
 }
 
-export function loadDataset(): Dataset {
-  const vehicleRows = db.select().from(vehicles).all();
-  const customerRows = db.select().from(customers).all();
-  const rentalRows = db.select().from(rentals).all();
+export async function loadDataset(): Promise<Dataset> {
+  const [vehicleRows, customerRows, rentalRows] = await Promise.all([
+    db.select().from(vehicles),
+    db.select().from(customers),
+    db.select().from(rentals),
+  ]);
   return {
     vehicles: vehicleRows,
     customers: customerRows,
@@ -93,8 +95,8 @@ export interface VehicleOverview extends Vehicle {
   activeRental: { id: number; customerName: string; endDate: string } | null;
 }
 
-export function listVehicles(): VehicleOverview[] {
-  const { vehicles: vehicleRows, rentals: rentalRows, customerById } = loadDataset();
+export async function listVehicles(): Promise<VehicleOverview[]> {
+  const { vehicles: vehicleRows, rentals: rentalRows, customerById } = await loadDataset();
   const today = todayISO();
   const from = addDaysISO(today, -29);
   return vehicleRows
@@ -127,8 +129,8 @@ export interface CustomerOverview extends Customer {
   segment: string;
 }
 
-export function listCustomers(): CustomerOverview[] {
-  const { customers: customerRows, rentals: rentalRows } = loadDataset();
+export async function listCustomers(): Promise<CustomerOverview[]> {
+  const { customers: customerRows, rentals: rentalRows } = await loadDataset();
   return customerRows
     .map((customer) => {
       const own = rentalRows.filter(
@@ -175,12 +177,12 @@ export interface RentalQuery {
   limit?: number;
 }
 
-export function listRentals(query: RentalQuery = {}): {
+export async function listRentals(query: RentalQuery = {}): Promise<{
   rentals: RentalRow[];
   total: number;
   stats: { activeCount: number; completed30: number; revenue30: number; avgDuration30: number };
-} {
-  const { rentals: rentalRows, vehicleById, customerById } = loadDataset();
+}> {
+  const { rentals: rentalRows, vehicleById, customerById } = await loadDataset();
   const today = todayISO();
   const from30 = addDaysISO(today, -29);
 
@@ -242,26 +244,13 @@ export function listRentals(query: RentalQuery = {}): {
   };
 }
 
-export function findActiveOverlap(
+export async function findActiveOverlap(
   vehicleId: number,
   startDate: string,
   endDate: string,
-): Rental | undefined {
-  return db
-    .select()
-    .from(rentals)
-    .where(eq(rentals.vehicleId, vehicleId))
-    .all()
+): Promise<Rental | undefined> {
+  const rows = await db.select().from(rentals).where(eq(rentals.vehicleId, vehicleId));
+  return rows
     .filter((rental) => rental.status !== 'cancelled')
     .find((rental) => rental.startDate < endDate && startDate < rental.endDate);
-}
-
-export function maxRentalStart(): string | null {
-  const [row] = db
-    .select({ startDate: rentals.startDate })
-    .from(rentals)
-    .orderBy(desc(rentals.startDate))
-    .limit(1)
-    .all();
-  return row?.startDate ?? null;
 }

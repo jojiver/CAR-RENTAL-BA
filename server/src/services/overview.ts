@@ -8,8 +8,8 @@ import {
   utilizationRate,
 } from './store';
 
-export function getOverview() {
-  const dataset = loadDataset();
+export async function getOverview() {
+  const dataset = await loadDataset();
   const today = todayISO();
   const from30 = addDaysISO(today, -29);
   const prevFrom = addDaysISO(today, -59);

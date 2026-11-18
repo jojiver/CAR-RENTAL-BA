@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "Rove — car rental operations platform with descriptive, predictive and prescriptive analytics",
+  "engines": {
+    "node": ">=20"
+  },
   "workspaces": [
     "server",
     "client"
@@ -14,6 +17,7 @@
     "build": "npm run build -w server && npm run build -w client",
     "start": "npm run start -w server",
     "db:generate": "npm run db:generate -w server",
+    "db:push": "npm run db:push -w server",
     "db:seed": "npm run db:seed -w server",
     "db:reset": "npm run db:reset -w server"
   },
