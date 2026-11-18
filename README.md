@@ -195,10 +195,11 @@ Manual alternative if you don't use the Blueprint:
    - installs the workspace (`npm install --include=dev`)
    - builds only the client (`npm run build -w client`)
    - publishes `client/dist`
+   - proxies `/api/*` to `https://car-rental-ba.onrender.com/api/*`
    - rewrites SPA routes to `index.html` so `/fleet`, `/analytics?tab=predictive`, etc. work on refresh.
-3. Add an environment variable in Vercel (Production and Preview):
+3. Optionally, instead of the proxy, set an environment variable (Production and Preview):
    - `VITE_API_URL` = `https://<your-render-service>.onrender.com`
-   - Use the **origin only** — no `/api`, no trailing slash. The client appends `/api`.
+   - Use the **origin only** — no `/api`, no trailing slash. The client appends `/api`. If set, this takes priority over the proxy.
 4. Deploy. Vite inlines `VITE_API_URL` at build time, so redeploy after changing it.
 5. Open the Vercel URL; the dashboard should load data from Render. Check the browser console/network if the API is unreachable.
 
@@ -219,7 +220,7 @@ The first API deploy runs migrations and seeds the dataset automatically. Subseq
 | Variable | Service | Required | Purpose |
 | --- | --- | --- | --- |
 | `DATABASE_URL` | Render (and local `server/.env`) | Yes | Neon/Postgres connection string, e.g. `...?sslmode=require` |
-| `VITE_API_URL` | Vercel (and optional `client/.env.local`) | Yes on Vercel | Render API origin, no `/api` suffix |
+| `VITE_API_URL` | Vercel (and optional `client/.env.local`) | No | Render API origin; overrides the `/api` proxy in `vercel.json` |
 | `CORS_ORIGIN` | Render | No | Comma-separated allowed origins; defaults to all |
 | `PG_POOL_MAX` | Render | No | Connection pool size (default `5`) |
 | `PORT` | Render | No | Injected by Render; the app falls back to `4000` |
